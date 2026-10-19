@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Botanical & Chinese SRS Flashcards</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
+        :root {
+            --bg-dark-1: #030712;
+            --bg-dark-2: #0b132b;
+            --bg-dark-3: #1c2541;
+            --accent-cyan: #4cc9f0;
+            --accent-blue: #4895ef;
+            --accent-glow: rgba(76, 201, 240, 0.35);
+            --gold-soft: #f4d35e;
+            --danger-red: #f72585;
+            
+            --glass-card: rgba(15, 23, 42, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-main);
+            overflow-x: hidden;
+            background-color: var(--bg-dark-1);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 20% 20%, #1e293b 0%, #0b132b 50%, #030712 100%);
+            z-index: -10;
+        }
+
+        nav { 
+            margin-bottom: 25px; 
+            display: flex; 
+            gap: 12px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            z-index: 10;
+        }
+
+        button { 
+            font-family: 'Quicksand', sans-serif; 
+            font-size: 15px; 
+            font-weight: 700; 
+            padding: 11px 18px; 
+            cursor: pointer; 
+            background: rgba(30, 41, 59, 0.7); 
+            color: #f1f5f9; 
+            border: 1px solid var(--glass-border); 
+            border-radius: 12px; 
+            backdrop-filter: blur(12px); 
+            transition: all 0.25s ease; 
+        }
+        button:hover { 
+            background: rgba(51, 65, 85, 0.85); 
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); 
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        button.active-nav { 
+            background: var(--accent-blue); 
+            border-color: var(--accent-cyan); 
+            box-shadow: 0 0 16px var(--accent-glow); 
+            color: #ffffff;
+        }
+        button.danger { background: rgba(247, 37, 133, 0.3); border-color: rgba(247, 37, 133, 0.5); }
+        button.danger:hover { background: rgba(247, 37, 133, 0.6); }
+
+        .shortcut-key { display: block; font-size: 11px; opacity: 0.75; margin-top: 3px; font-weight: 600; }
+
+        .section { 
+            display: none; 
+            width: 100%; 
+            max-width: 760px; 
+            background: var(--glass-card); 
+            padding: 28px; 
+            border: 1px solid var(--glass-border); 
+            border-radius: 20px; 
+            backdrop-filter: blur(20px); 
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55); 
+            margin-bottom: 20px; 
+            box-sizing: border-box;
+        }
+        .section.active { display: block; animation: fadeIn 0.35s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        h2, h3 { text-align: center; font-weight: 700; margin-top: 0; color: var(--gold-soft); letter-spacing: 0.5px; }
+
+        /* THANH LỌC BỘ BÀI */
+        .deck-filters { 
+            display: flex; 
+            gap: 8px; 
+            margin-bottom: 20px; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            background: rgba(0,0,0,0.3); 
+            padding: 10px; 
+            border-radius: 14px; 
+            border: 1px solid var(--glass-border); 
+        }
+        .filter-btn { 
+            flex: 1; 
+            min-width: 95px; 
+            background: rgba(255,255,255,0.05); 
+            border: 1px solid var(--glass-border); 
+            padding: 9px 8px; 
+            border-radius: 10px; 
+            color: #cbd5e1; 
+            cursor: pointer; 
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .filter-btn:hover { background: rgba(255,255,255,0.12); }
+        .filter-btn.active-filter { 
+            background: rgba(72, 149, 239, 0.35); 
+            border-color: var(--accent-cyan); 
+            box-shadow: 0 0 12px var(--accent-glow); 
+            color: #ffffff;
+        }
+        .f-count { background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 4px; }
+
+        /* THẺ HỌC DARK GLASS */
+        #flashcard { 
+            position: relative;
+            text-align: center; 
+            min-height: 290px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            background: rgba(15, 23, 42, 0.9); 
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 30px; 
+            border-radius: 20px; 
+            margin-bottom: 20px; 
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.1), 0 12px 30px rgba(0, 0, 0, 0.4); 
+            color: #f8fafc;
+        }
+        #card-front { font-size: 40px; font-weight: 700; color: #60a5fa; margin-bottom: 15px; }
+
+        .typing-box-container { margin: 15px 0 5px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .typing-input {
+            width: 88% !important;
+            text-align: center;
+            font-size: 20px !important;
+            font-weight: 700 !important;
+            background: rgba(30, 41, 59, 0.8) !important;
+            color: #38bdf8 !important;
+            border: 2px solid #0284c7 !important;
+            border-radius: 12px !important;
+            padding: 12px 16px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            outline: none;
+            transition: all 0.2s;
+        }
+        .typing-input:focus {
+            border-color: var(--accent-cyan) !important;
+            background: rgba(15, 23, 42, 0.95) !important;
+            box-shadow: 0 0 15px var(--accent-glow) !important;
+        }
+        .type-feedback {
+            font-size: 15px;
+            font-weight: 700;
+            padding: 8px 16px;
+            border-radius: 8px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .type-correct { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #059669; }
+        .type-incorrect { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid #e11d48; }
+
+        #card-back { font-size: 23px; font-weight: 600; color: #e2e8f0; display: none; line-height: 1.6; }
+        #card-divider { border-top: 1px dashed rgba(255,255,255,0.2); margin: 20px 0; display: none; }
+
+        .srs-buttons { display: none; justify-content: space-between; flex-wrap: wrap; margin-top: 20px; gap: 8px; }
+        .srs-btn { flex: 1; min-width: 70px; border: none; padding: 12px 4px; border-radius: 12px; font-size: 14px; }
+        .btn-again { background: #e63946; }
+        .btn-hard { background: #f77f00; }
+        .btn-good { background: #2a9d8f; }
+        .btn-easy { background: #457b9d; }
+        .btn-super-easy { background: #e09f3e; color: #1e1e24; font-weight: 800; }
+        .btn-end { background: #475569; width: 100%; }
+
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 13px; flex-wrap: wrap; gap: 8px;}
+        .timer-box { background: rgba(0, 0, 0, 0.35); padding: 7px 14px; border-radius: 8px; font-weight: 700; color: var(--gold-soft); border: 1px solid var(--glass-border); }
+        .toggle-btn { background: rgba(255, 255, 255, 0.08); padding: 7px 12px; border-radius: 8px; cursor: pointer; border: 1px solid var(--glass-border); font-size: 13px; }
+        .toggle-btn.active-toggle { background: rgba(56, 189, 248, 0.3); border-color: var(--accent-cyan); color: #fff; }
+
+        .music-panel { display: none; background: rgba(0, 0, 0, 0.45); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--glass-border); text-align: center;}
+        .music-panel.active { display: flex; flex-direction: column; gap: 10px; animation: fadeIn 0.3s ease; }
+
+        input[type="text"], input[type="number"], input[type="file"] { 
+            font-family: 'Quicksand', sans-serif; 
+            font-weight: 600; 
+            padding: 12px; 
+            margin: 8px 0; 
+            width: calc(100% - 24px); 
+            background: rgba(30, 41, 59, 0.85); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 10px; 
+            font-size: 15px; 
+            color: #f1f5f9; 
+            outline: none; 
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus, input[type="number"]:focus { border-color: var(--accent-cyan); }
+
+        .word-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+        .word-item strong { color: #38bdf8; font-size: 18px; }
+
+        .setting-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-size: 16px; font-weight: 600;}
+        .setting-group input { width: 85px; text-align: center; }
+
+        .import-box { background: rgba(0, 0, 0, 0.25); border-radius: 12px; padding: 18px; margin-bottom: 20px; text-align: center; border: 1px solid var(--glass-border); }
+        #import-status { font-weight: bold; color: var(--gold-soft); margin-top: 10px; font-size: 14px; }
+        
+        .reading-card { background: rgba(255, 255, 255, 0.05); padding: 14px; border-radius: 10px; cursor: pointer; border: 1px solid var(--glass-border); display: flex; justify-content: space-between; margin-bottom: 8px;}
+        .reading-content { display: none; background: rgba(15, 23, 42, 0.95); color: #e2e8f0; padding: 20px; border-radius: 14px; margin-top: 15px; line-height: 1.8; border: 1px solid var(--glass-border); }
+        .answer-box { display: none; margin-top: 15px; padding: 12px; background: rgba(30, 41, 59, 0.7); border-left: 3px solid var(--accent-cyan); border-radius: 6px; font-size: 15px;}
+    </style>
+</head>
+<body>
+
+    <nav>
+        <button id="nav-study" onclick="showSection('study')">📖 Học Bài</button>
+        <button id="nav-manage" onclick="showSection('manage')">📝 Quản Lý Từ</button>
+        <button id="nav-reading" onclick="showSection('reading')">📚 Reading HSK</button>
+        <button id="nav-settings" onclick="showSection('settings')">⚙️ Cài Đặt</button>
+        <button id="btn-fullscreen" onclick="toggleFullScreen()">🔲 Toàn Màn Hình</button>
+    </nav>
+
+    <!-- SECTION HỌC BÀI -->
+    <div id="study" class="section active">
+        <div class="toolbar">
+            <div class="timer-box">⏳ <span id="timer-display">00:00</span></div>
+            <div id="undo-status" style="color: var(--gold-soft); font-weight: bold;">(Ctrl+Z: Hoàn tác)</div>
+            <button class="toggle-btn" onclick="toggleMusicPanel()">🌊 Tiếng Biển & Alpha</button>
+            <button id="btn-toggle-type" class="toggle-btn active-toggle" onclick="toggleTypeMode()">⌨️ Gõ từ: Bật</button>
+            <button id="btn-reverse" class="toggle-btn" onclick="toggleReverseMode()">🔄 Đảo: Tắt</button>
+        </div>
+
+        <!-- BỘ LỌC TỪ VỰNG -->
+        <div class="deck-filters">
+            <button id="btn-filter-all" class="filter-btn active-filter" onclick="setStudyMode('all')">Tất cả <span id="count-all" class="f-count">0</span></button>
+            <button id="btn-filter-new" class="filter-btn" onclick="setStudyMode('new')">🌱 Mới <span id="count-new" class="f-count">0</span></button>
+            <button id="btn-filter-learning" class="filter-btn" onclick="setStudyMode('learning')">🔥 Đang nhớ <span id="count-learning" class="f-count">0</span></button>
+            <button id="btn-filter-reset" class="filter-btn" onclick="setStudyMode('reset')" style="border-color: rgba(244, 211, 94, 0.4);">
+                ♻️ Mới reset <span id="count-reset" class="f-count">0</span>
+            </button>
+            <button id="btn-filter-review" class="filter-btn" onclick="setStudyMode('review')">🌿 Ôn định kỳ <span id="count-review" class="f-count">0</span></button>
+            <button id="btn-filter-yesterday" class="filter-btn" onclick="setStudyMode('yesterday')">
+                🔙 Gần đây (Top 25) <span id="count-yesterday" class="f-count">0</span>
+            </button>
+            <button id="btn-filter-today" class="filter-btn" onclick="setStudyMode('today')">
+                📅 Hôm nay <span id="count-today" class="f-count">0</span>
+                <span class="shortcut-key">(Phím 7)</span>
+            </button>
+        </div>
+
+        <div id="music-panel" class="music-panel">
+            <p style="margin: 0; font-size: 13px; color: #94a3b8;">Âm sóng biển & sóng Alpha 10Hz giúp tăng tập trung ghi nhớ.</p>
+            <div>
+                <button id="btn-default-music" onclick="toggleFocusMusic()" style="background: var(--accent-blue); padding: 10px 20px;">▶️ Bật Âm Thanh</button>
+            </div>
+            <div id="music-status" style="font-size: 12px; color: #38bdf8;">Trạng thái: Đang tắt</div>
+        </div>
+        
+        <h2 id="study-status">Đang tải...</h2>
+        <div id="flashcard-container" style="display: none;">
+            <div id="flashcard">
+                <button onclick="deleteCurrentCard()" title="Xóa vĩnh viễn thẻ này" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; font-size: 20px; cursor: pointer; opacity: 0.6;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">🗑️</button>
+
+                <div id="card-front"></div>
+                
+                <div id="typing-area" class="typing-box-container">
+                    <input type="text" id="type-input" class="typing-input" placeholder="✍️ Gõ câu trả lời (Pinyin / Nghĩa)..." autocomplete="off" spellcheck="false">
+                    <div id="type-feedback" class="type-feedback"></div>
+                </div>
+
+                <div id="card-divider"></div>
+                <div id="card-back"></div>
+            </div>
+            
+            <div id="action-buttons-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button id="btn-show-answer" onclick="showAnswer()" style="flex: 3; font-size: 18px; padding: 14px; background: rgba(56, 189, 248, 0.2); border-color: var(--accent-cyan); color: #38bdf8;">
+                    Kiểm Tra / Lật Thẻ 🔄
+                    <span class="shortcut-key">(Enter / Space)</span>
+                </button>
+                <button id="btn-skip" onclick="skipCard()" style="flex: 1; font-size: 16px; padding: 14px; background: rgba(148, 163, 184, 0.15);">
+                    Bỏ qua ⏭️
+                    <span class="shortcut-key">(Mũi tên phải)</span>
+                </button>
+            </div>
+            
+            <div id="srs-buttons" class="srs-buttons">
+                <button class="srs-btn btn-again" onclick="answerCard('again')">Lại<br><small id="lbl-again"></small><span class="shortcut-key">(Phím 1)</span></button>
+                <button class="srs-btn btn-hard" onclick="answerCard('hard')">Khó<br><small id="lbl-hard"></small><span class="shortcut-key">(Phím 2)</span></button>
+                <button class="srs-btn btn-good" onclick="answerCard('good')">Được<br><small id="lbl-good"></small><span class="shortcut-key">(Phím 3 / Space)</span></button>
+                <button class="srs-btn btn-easy" onclick="answerCard('easy')">Dễ (Xong)<br><small id="lbl-easy"></small><span class="shortcut-key">(Phím 4)</span></button>
+                <button class="srs-btn btn-super-easy" onclick="answerCard('superEasy')">Siêu Dễ (Xong)<br><small id="lbl-super-easy"></small><span class="shortcut-key">(Phím 5)</span></button>
+                
+                <div style="display: flex; gap: 10px; width: 100%; margin-top: 10px;">
+                    <button class="srs-btn btn-end" onclick="sendToEnd()">⬇️ Tạm lui về sau cùng (Phím 6)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION QUẢN LÝ -->
+    <div id="manage" class="section">
+        <h2>Công cụ xử lý nhanh</h2>
+        <div style="background: rgba(0,0,0,0.25); border-radius: 12px; padding: 16px; margin-bottom: 20px; border: 1px solid var(--glass-border); text-align: center;">
+            <p style="margin: 0 0 12px 0; font-size: 14px; color: var(--gold-soft);">Giải phóng áp lực khi kho từ ôn tập quá nhiều:</p>
+            <button onclick="resetReviewQueue()" style="background: rgba(244, 211, 94, 0.2); border-color: var(--gold-soft); color: var(--gold-soft); width: 100%; font-size: 15px;">
+                🔄 Reset toàn bộ Ôn định kỳ ➔ Đưa vào mục "Mới Reset"
+            </button>
+        </div>
+
+        <h2>Nhập dữ liệu</h2>
+        <div class="import-box">
+            <input type="file" id="file-input" accept=".txt,.apkg,.colpkg">
+            <button onclick="handleFileUpload()" style="width: 100%; margin-top: 8px;">Tải file lên</button>
+            <div id="import-status"></div>
+        </div>
+
+        <h2>Thêm từ thủ công</h2>
+        <input type="text" id="new-front" placeholder="Mặt trước (Ví dụ: 容易)">
+        <input type="text" id="new-back" placeholder="Mặt sau (Ví dụ: róngyì - Dễ dàng)">
+        <button onclick="addWord()" style="width: 100%; background: var(--accent-blue);">Thêm Từ Mới</button>
+        
+        <h3 style="margin-top: 35px;">Kho từ vựng (<span id="word-count">0</span>)</h3>
+        <button class="danger" onclick="deleteAllWords()" style="width: 100%; margin-bottom: 15px;">Xóa toàn bộ từ vựng</button>
+        <div id="word-list"></div>
+    </div>
+
+    <!-- SECTION READING HSK -->
+    <div id="reading" class="section">
+        <h2>📚 Luyện Đọc & Nghe HSK</h2>
+        <div id="reading-list"></div>
+        <button onclick="closeReading()" id="btn-back-reading" style="display:none; width: 100%; margin-top: 15px; background: rgba(244, 63, 94, 0.4);">⬅️ Quay lại danh sách</button>
+        <div id="reading-viewer" class="reading-content">
+            <button onclick="playReadingAudio()" style="background: var(--accent-blue); margin-bottom: 15px;">🔊 Nghe Bài Đọc (Phát âm)</button>
+            <div id="r-text" style="font-size: 19px; margin-bottom: 20px;"></div>
+            <div class="question-block"><h4 style="color: var(--accent-cyan);">Phần 1: Đúng hay Sai (T/F)</h4><div id="r-tf"></div></div>
+            <div class="question-block"><h4 style="color: var(--accent-cyan); margin-top: 15px;">Phần 2: Trả lời câu hỏi</h4><div id="r-essay"></div></div>
+            <button onclick="toggleAnswers()" style="width: 100%; background: #334155; margin-top: 15px;">Kiểm Tra Đáp Án 👁️</button>
+            <div id="r-answers" class="answer-box"></div>
+        </div>
+    </div>
+
+    <!-- SECTION CÀI ĐẶT -->
+    <div id="settings" class="section">
+        <h2>Khắc phục quá tải thẻ</h2>
+        <div style="background: rgba(0,0,0,0.25); border-radius: 12px; padding: 14px; margin-bottom: 20px; border: 1px solid var(--glass-border); text-align: center;">
+            <button onclick="resetReviewQueue()" style="background: rgba(244, 211, 94, 0.2); border-color: var(--gold-soft); color: var(--gold-soft); width: 100%; font-size: 15px;">
+                🔄 Reset toàn bộ Ôn định kỳ ➔ Chuyển sang "Mới Reset"
+            </button>
+            <small style="display: block; margin-top: 8px; color: #94a3b8;">Thao tác này giúp dọn sạch mục ôn định kỳ, không làm mất từ của bạn mà gom gọn vào thẻ lọc "Mới reset".</small>
+        </div>
+
+        <h2>Giới hạn học hàng ngày</h2>
+        <div class="setting-group"><label>🌱 Giới hạn TỪ MỚI:</label><input type="number" id="set-limit-new" min="1"></div>
+        <div class="setting-group"><label>♻️ Giới hạn MỚI RESET:</label><input type="number" id="set-limit-reset" min="1" value="20"></div>
+        <div class="setting-group"><label>🌿 Giới hạn ÔN TẬP:</label><input type="number" id="set-limit-review" min="1"></div>
+        <div class="setting-group"><label>🔙 Giới hạn từ GẦN ĐÂY:</label><input type="number" id="set-limit-recent" min="5" value="25"></div>
+        
+        <h2 style="margin-top: 25px;">Cài đặt chu kỳ lặp lại (Phút)</h2>
+        <div class="setting-group"><label>🔴 Lại (Phút):</label><input type="number" id="set-again" min="1"></div>
+        <div class="setting-group"><label>🟠 Khó (Phút):</label><input type="number" id="set-hard" min="1"></div>
+        <div class="setting-group"><label>🟢 Được (Phút):</label><input type="number" id="set-good" min="1"></div>
+        <div class="setting-group"><label>🔵 Dễ (Lần 1 - Phút, 1440 = 1 ngày):</label><input type="number" id="set-easy" min="1"></div>
+        <div class="setting-group"><label>🌟 Siêu Dễ (Lần 1 - Phút, 10080 = 7 ngày):</label><input type="number" id="set-super-easy" min="1"></div>
+        <button onclick="saveSettings()" style="width: 100%; font-size: 16px; margin-top: 15px; background: var(--accent-blue);">Lưu Cài Đặt</button>
+    </div>
+
+    <script>
+        const defaultWords = [
+            { front: "容易", back: "róngyì - Dễ dàng" },
+            { front: "相信", back: "xiāngxìn - Tin tưởng" },
+            { front: "热情", back: "rèqíng - Nhiệt tình" },
+            { front: "大家都挺喜欢他的", back: "dàjiā dōu tǐng xǐhuān tā de - Mọi người đều khá thích anh ấy" },
+            { front: "成绩", back: "chéngjì - Thành tích, điểm số, kết quả" },
+            { front: "办法", back: "bànfǎ - Cách, biện pháp" },
+            { front: "天安门广场", back: "Tiān'ānmén guǎngchǎng - Quảng trường Thiên An Môn" },
+            { front: "普通话", back: "pǔtōnghuà - Tiếng Phổ thông" },
+            { front: "几乎", back: "jīhū - Hầu như, gần như" },
+            { front: "打扫", back: "dǎsǎo - Quét dọn" }
+        ];
+
+        let words = JSON.parse(localStorage.getItem('words')) || [];
+        if (words.length === 0) {
+            words = defaultWords.map(w => ({
+                id: Date.now() + Math.random(),
+                front: w.front,
+                back: w.back,
+                dueDate: Date.now(),
+                isEndQueue: false,
+                easyCount: 0,
+                superEasyCount: 0,
+                status: 'new',
+                sessionReviewed: false,
+                lastStudied: 0
+            }));
+            localStorage.setItem('words', JSON.stringify(words));
+        }
+
+        let settings = JSON.parse(localStorage.getItem('settings')) || { 
+            again: 3, 
+            hard: 5, 
+            good: 7, 
+            easy: 1440, 
+            superEasy: 10080, 
+            limitNew: 20, 
+            limitReset: 20,
+            limitReview: 50,
+            limitRecent: 25
+        };
+
+        let currentCard = null;
+        let isReverseMode = false;
+        let isTypeMode = true;
+        let historyStack = []; 
+        let currentStudyMode = 'all';
+        let studySeconds = 0;
+
+        setInterval(() => {
+            studySeconds++;
+            const m = String(Math.floor((studySeconds % 3600) / 60)).padStart(2, '0');
+            const s = String(studySeconds % 60).padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
+        }, 1000);
+
+        // --- HỆ THỐNG ÂM THANH ALPHA & BIỂN ---
+        let sharedAudioCtx = null, isMusicPlaying = false, focusOsc1, focusOsc2, noiseSrc, lfo;
+        function getAudioContext() {
+            if (!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+            return sharedAudioCtx;
+        }
+
+        function toggleMusicPanel() { document.getElementById('music-panel').classList.toggle('active'); }
+        
+        function toggleFocusMusic() {
+            const btn = document.getElementById('btn-default-music');
+            const status = document.getElementById('music-status');
+            if (isMusicPlaying) {
+                if(focusOsc1) { focusOsc1.stop(); focusOsc1.disconnect(); }
+                if(focusOsc2) { focusOsc2.stop(); focusOsc2.disconnect(); }
+                if(noiseSrc) { noiseSrc.stop(); noiseSrc.disconnect(); }
+                if(lfo) { lfo.stop(); lfo.disconnect(); }
+                isMusicPlaying = false;
+                btn.innerHTML = "▶️ Bật Âm Thanh";
+                status.innerText = "Trạng thái: Đang tắt";
+            } else {
+                const ctx = getAudioContext();
+                const droneGain = ctx.createGain(); 
+                droneGain.gain.value = 0.035; 
+                droneGain.connect(ctx.destination);
+                
+                focusOsc1 = ctx.createOscillator(); focusOsc1.type = 'sine'; focusOsc1.frequency.value = 216; focusOsc1.connect(droneGain); focusOsc1.start();
+                focusOsc2 = ctx.createOscillator(); focusOsc2.type = 'sine'; focusOsc2.frequency.value = 226; focusOsc2.connect(droneGain); focusOsc2.start();
+                
+                const bufferSize = ctx.sampleRate * 2; 
+                const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0); 
+                let lastOut = 0;
+                for (let i = 0; i < bufferSize; i++) { 
+                    const white = Math.random() * 2 - 1; 
+                    output[i] = (lastOut + (0.015 * white)) / 1.015; 
+                    lastOut = output[i]; 
+                    output[i] *= 2.8; 
+                }
+                noiseSrc = ctx.createBufferSource(); noiseSrc.buffer = noiseBuffer; noiseSrc.loop = true;
+                
+                const leafFilter = ctx.createBiquadFilter(); leafFilter.type = 'bandpass'; leafFilter.frequency.value = 450; leafFilter.Q.value = 1.5;
+                lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.08; 
+                const lfoGain = ctx.createGain(); lfoGain.gain.value = 250; lfo.connect(lfoGain); lfoGain.connect(leafFilter.frequency);
+                
+                const noiseGain = ctx.createGain(); noiseGain.gain.value = 0.28; 
+                noiseSrc.connect(leafFilter).connect(noiseGain).connect(ctx.destination);
+                
+                lfo.start(); noiseSrc.start();
+                isMusicPlaying = true;
+                btn.innerHTML = "⏸️ Dừng Âm Thanh";
+                status.innerText = "Trạng thái: Sóng Biển & Alpha 10Hz";
+            }
+        }
+
+        // --- CÁC HÀM TIỆN ÍCH ---
+        function cleanString(str) {
+            return (str || '').replace(/<[^>]*>/g, ' ').replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?"'\[\]]/g, '').toLowerCase().trim();
+        }
+
+        function toggleReverseMode() {
+            isReverseMode = !isReverseMode;
+            const btn = document.getElementById('btn-reverse');
+            btn.innerText = isReverseMode ? "🔄 Đảo: Bật (Việt ➔ Trung)" : "🔄 Đảo: Tắt";
+            btn.classList.toggle('active-toggle', isReverseMode);
+            if (currentCard) displayCardContent();
+        }
+
+        function toggleTypeMode() {
+            isTypeMode = !isTypeMode;
+            const btn = document.getElementById('btn-toggle-type');
+            btn.innerText = isTypeMode ? "⌨️ Gõ từ: Bật" : "⌨️ Gõ từ: Tắt";
+            btn.classList.toggle('active-toggle', isTypeMode);
+            document.getElementById('typing-area').style.display = isTypeMode ? 'flex' : 'none';
+            if (isTypeMode) document.getElementById('type-input').focus();
+        }
+
+        function setStudyMode(mode) {
+            currentStudyMode = mode;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active-filter'));
+            const targetBtn = document.getElementById('btn-filter-' + mode);
+            if (targetBtn) targetBtn.classList.add('active-filter');
+            loadNextCard();
+        }
+
+        function isStudiedToday(timestamp) {
+            if (!timestamp) return false;
+            return new Date(timestamp).toDateString() === new Date().toDateString();
+        }
+
+        // --- HÀM RESET MỤC ÔN ĐỊNH KỲ ---
+        function resetReviewQueue() {
+            let reviewCards = words.filter(w => w.status === 'review');
+            if (reviewCards.length === 0) {
+                return alert("Hiện không có thẻ nào trong mục Ôn định kỳ để reset!");
+            }
+            if (confirm(`Tìm thấy ${reviewCards.length} thẻ trong mục Ôn định kỳ.\nBạn có muốn chuyển toàn bộ sang mục "Mới reset" để học từng đợt nhẹ nhàng không?`)) {
+                words.forEach(w => {
+                    if (w.status === 'review') {
+                        w.status = 'reset';
+                        w.dueDate = Date.now();
+                        w.sessionReviewed = false;
+                        w.isEndQueue = false;
+                    }
+                });
+                saveData();
+                updateDeckStats();
+                alert(`Đã chuyển thành công ${reviewCards.length} thẻ sang mục "Mới reset"!`);
+                showSection('study');
+                setStudyMode('reset');
+            }
+        }
+
+        // --- THỐNG KÊ SỐ LƯỢNG THẺ ---
+        function updateDeckStats() {
+            const now = Date.now();
+            let newCount = 0, learningCount = 0, reviewCount = 0, resetCount = 0, todayCount = 0, recentCount = 0;
+            
+            words.forEach(w => {
+                // Đếm thẻ "Hôm nay": Đã tương tác hôm nay nhưng CHƯA đạt phím 3, 4, 5
+                if (isStudiedToday(w.lastStudied) && !w.sessionReviewed) {
+                    todayCount++;
+                }
+
+                // Chỉ tính vào mục Gần đây nếu đã đến hạn ôn tập và chưa pass trong ngày
+                if (w.lastStudied > 0 && w.dueDate <= now && !w.sessionReviewed) {
+                    recentCount++;
+                }
+
+                if (w.isEndQueue) {
+                    learningCount++;
+                } else if (w.dueDate <= now) {
+                    if (w.status === 'new') newCount++;
+                    else if (w.status === 'learning') learningCount++;
+                    else if (w.status === 'reset') resetCount++;
+                    else if (w.status === 'review') reviewCount++;
+                } else if (w.status === 'reset') {
+                    resetCount++;
+                }
+            });
+            
+            document.getElementById('count-new').innerText = newCount;
+            document.getElementById('count-learning').innerText = learningCount;
+            document.getElementById('count-reset').innerText = resetCount;
+            document.getElementById('count-review').innerText = reviewCount;
+            document.getElementById('count-all').innerText = newCount + learningCount + reviewCount + resetCount;
+            document.getElementById('count-today').innerText = todayCount;
+            document.getElementById('count-yesterday').innerText = Math.min(recentCount, settings.limitRecent || 25);
+        }
+
+        // --- THUẬT TOÁN BỐC THẺ ---
+        function loadNextCard() {
+            updateDeckStats();
+            const now = Date.now();
+            let pool = [];
+
+            if (currentStudyMode === 'today') {
+                pool = words.filter(w => isStudiedToday(w.lastStudied) && !w.sessionReviewed);
+            } 
+            else if (currentStudyMode === 'yesterday') {
+                // ĐÃ SỬA: Chỉ lấy những thẻ đã học trước đó, ĐÃ ĐẾN HẠN và CHƯA hoàn thành trong phiên này
+                let studiedWords = words.filter(w => w.lastStudied > 0 && w.dueDate <= now && !w.sessionReviewed);
+                studiedWords.sort((a, b) => b.lastStudied - a.lastStudied);
+                pool = studiedWords.slice(0, settings.limitRecent || 25);
+            } 
+            else if (currentStudyMode === 'new') {
+                pool = words.filter(w => w.status === 'new' && w.dueDate <= now).slice(0, settings.limitNew || 20);
+            } 
+            else if (currentStudyMode === 'reset') {
+                pool = words.filter(w => w.status === 'reset' && w.dueDate <= now).slice(0, settings.limitReset || 20);
+            }
+            else if (currentStudyMode === 'learning') {
+                pool = words.filter(w => (w.status === 'learning' || w.isEndQueue) && w.dueDate <= now);
+            } 
+            else if (currentStudyMode === 'review') {
+                pool = words.filter(w => w.status === 'review' && !w.isEndQueue && w.dueDate <= now).slice(0, settings.limitReview || 50);
+            } 
+            else { // all
+                pool = words.filter(w => w.dueDate <= now || w.isEndQueue);
+            }
+
+            if (pool.length > 0) {
+                let chosenCard = null;
+
+                let urgentLearning = pool.filter(w => w.status === 'learning' && w.dueDate <= now && !w.isEndQueue);
+                if (urgentLearning.length > 1 && currentCard) {
+                    urgentLearning = urgentLearning.filter(w => w.id !== currentCard.id);
+                }
+
+                if (urgentLearning.length > 0) {
+                    chosenCard = urgentLearning[Math.floor(Math.random() * urgentLearning.length)];
+                } else {
+                    let readyQueue = pool.filter(w => w.dueDate <= now && !w.isEndQueue);
+
+                    if (readyQueue.length > 1 && currentCard) {
+                        readyQueue = readyQueue.filter(w => w.id !== currentCard.id);
+                    }
+
+                    if (readyQueue.length > 0) {
+                        chosenCard = readyQueue[Math.floor(Math.random() * readyQueue.length)];
+                    } else {
+                        let endQueue = pool.filter(w => w.isEndQueue);
+                        if (endQueue.length > 0) {
+                            chosenCard = endQueue[0];
+                        } else {
+                            pool.sort((a, b) => a.dueDate - b.dueDate);
+                            let altPool = pool.filter(w => !currentCard || w.id !== currentCard.id);
+                            chosenCard = altPool.length > 0 ? altPool[0] : pool[0];
+                        }
+                    }
+                }
+
+                currentCard = chosenCard;
+                displayCardContent(pool.length);
+                return;
+            }
+
+            // Hết thẻ
+            currentCard = null;
+            let msg = "✨ Đã hoàn thành các thẻ trong danh mục này!";
+            if (currentStudyMode === 'today') msg = "✨ Xuất sắc! Tất cả từ vựng hôm nay đã đạt yêu cầu (Được / Dễ / Siêu Dễ).";
+            if (currentStudyMode === 'reset') msg = "✨ Đã học hết các thẻ mới reset! Bạn có thể chuyển sang chế độ khác.";
+            if (currentStudyMode === 'yesterday') msg = "✨ Đã hoàn thành toàn bộ các thẻ gần đây cần ôn tập!";
+            
+            document.getElementById('study-status').innerText = msg;
+            document.getElementById('flashcard-container').style.display = 'none';
+        }
+
+        function displayCardContent(remainingCount = 1) {
+            document.getElementById('study-status').innerText = `Chế độ: ${currentStudyMode.toUpperCase()} - Đang học (${remainingCount} thẻ)`;
+            document.getElementById('flashcard-container').style.display = 'block';
+
+            let front = currentCard.front;
+            let back = currentCard.back;
+
+            if (isReverseMode) {
+                let parts = currentCard.back.split(/<br\s*\/?>|\n|-/i);
+                if (parts.length >= 2) {
+                    let pinyin = parts[0].trim();
+                    let meaning = parts.slice(1).join('<br>').trim();
+                    front = meaning || pinyin;
+                    back = `<div style="font-size: 38px; color: #60a5fa; margin-bottom: 5px;">${currentCard.front}</div><div style="font-size: 24px; color: var(--gold-soft);">[${pinyin}]</div>`;
+                } else {
+                    front = currentCard.back;
+                    back = currentCard.front;
+                }
+            }
+
+            document.getElementById('card-front').innerHTML = front;
+            document.getElementById('card-back').innerHTML = back;
+            document.getElementById('card-back').style.display = 'none';
+            document.getElementById('card-divider').style.display = 'none';
+            document.getElementById('srs-buttons').style.display = 'none';
+            document.getElementById('action-buttons-container').style.display = 'flex';
+
+            const typeInput = document.getElementById('type-input');
+            const feedback = document.getElementById('type-feedback');
+            typeInput.value = '';
+            typeInput.disabled = false;
+            feedback.style.display = 'none';
+
+            if (isTypeMode) {
+                document.getElementById('typing-area').style.display = 'flex';
+                setTimeout(() => typeInput.focus(), 60);
+            } else {
+                document.getElementById('typing-area').style.display = 'none';
+            }
+            updateLabels();
+        }
+
+        function showAnswer() {
+            const typeInput = document.getElementById('type-input');
+            const feedback = document.getElementById('type-feedback');
+
+            if (isTypeMode && typeInput.value.trim() !== '') {
+                const userVal = cleanString(typeInput.value);
+                const targetBack = cleanString(currentCard.back);
+                const targetFront = cleanString(currentCard.front);
+                let isMatch = false;
+
+                let parts = targetBack.split('-').map(p => p.trim());
+                if (!isReverseMode) {
+                    if (targetBack.includes(userVal) || userVal.includes(targetBack) || parts.some(p => p === userVal || p.includes(userVal))) {
+                        isMatch = true;
+                    }
+                } else {
+                    if (targetFront.includes(userVal) || targetBack.includes(userVal)) isMatch = true;
+                }
+
+                feedback.style.display = 'block';
+                if (isMatch) {
+                    feedback.className = 'type-feedback type-correct';
+                    feedback.innerHTML = `🎉 Chính xác: <b>${typeInput.value}</b>`;
+                } else {
+                    feedback.className = 'type-feedback type-incorrect';
+                    feedback.innerHTML = `❌ Bạn đã gõ: <i>${typeInput.value}</i>`;
+                }
+                typeInput.disabled = true;
+            }
+
+            document.getElementById('card-back').style.display = 'block';
+            document.getElementById('card-divider').style.display = 'block';
+            document.getElementById('action-buttons-container').style.display = 'none';
+            document.getElementById('srs-buttons').style.display = 'flex';
+        }
+
+        // --- TRẢ LỜI THẺ ---
+        function answerCard(quality) {
+            if (!currentCard) return;
+
+            historyStack.push(JSON.parse(JSON.stringify(currentCard)));
+            if (historyStack.length > 30) historyStack.shift();
+
+            currentCard.lastStudied = Date.now();
+            let minutesToAdd = 0;
+
+            if (quality === 'easy') {
+                currentCard.status = 'review';
+                currentCard.sessionReviewed = true; // Đánh dấu hoàn thành trong phiên
+                currentCard.easyCount = (currentCard.easyCount || 0) + 1;
+                minutesToAdd = settings.easy || 1440;
+            } 
+            else if (quality === 'superEasy') {
+                currentCard.status = 'review';
+                currentCard.sessionReviewed = true; // Đánh dấu hoàn thành trong phiên
+                currentCard.superEasyCount = (currentCard.superEasyCount || 0) + 1;
+                minutesToAdd = settings.superEasy || 10080;
+            } 
+            else if (quality === 'good') {
+                currentCard.status = 'review';
+                currentCard.sessionReviewed = true; // Đánh dấu hoàn thành trong phiên
+                minutesToAdd = settings.good || 7;
+            }
+            else { // again, hard
+                currentCard.status = 'learning';
+                currentCard.sessionReviewed = false; 
+
+                if (quality === 'again') {
+                    minutesToAdd = settings.again || 3;
+                } else if (quality === 'hard') {
+                    minutesToAdd = settings.hard || 5;
+                }
+            }
+
+            currentCard.dueDate = Date.now() + (minutesToAdd * 60 * 1000);
+            currentCard.isEndQueue = false;
+
+            saveData();
+            loadNextCard();
+        }
+
+        function skipCard() {
+            if (!currentCard) return;
+            currentCard.isEndQueue = true;
+            saveData();
+            loadNextCard();
+        }
+
+        function sendToEnd() {
+            if (!currentCard) return;
+            historyStack.push(JSON.parse(JSON.stringify(currentCard)));
+            currentCard.lastStudied = Date.now();
+            currentCard.sessionReviewed = false;
+            currentCard.isEndQueue = true;
+            saveData();
+            loadNextCard();
+        }
+
+        function undoLastAction() {
+            if (historyStack.length === 0) {
+                document.getElementById('undo-status').innerText = "(Hết thao tác để hoàn tác)";
+                setTimeout(() => document.getElementById('undo-status').innerText = "(Ctrl+Z: Hoàn tác)", 2000);
+                return;
+            }
+            const lastState = historyStack.pop();
+            const idx = words.findIndex(w => w.id === lastState.id);
+            if (idx !== -1) {
+                words[idx] = { ...lastState };
+                saveData();
+                currentCard = words[idx];
+                displayCardContent();
+                document.getElementById('undo-status').innerText = "✅ Đã khôi phục thẻ!";
+                setTimeout(() => document.getElementById('undo-status').innerText = "(Ctrl+Z: Hoàn tác)", 2000);
+            }
+        }
+
+        function deleteCurrentCard() {
+            if (!currentCard) return;
+            if (confirm('🗑️ Xóa vĩnh viễn thẻ này khỏi hệ thống?')) {
+                words = words.filter(w => w.id !== currentCard.id);
+                saveData();
+                loadNextCard();
+            }
+        }
+
+        function updateLabels() {
+            document.getElementById('lbl-again').innerText = (settings.again || 3) + 'p';
+            document.getElementById('lbl-hard').innerText = (settings.hard || 5) + 'p';
+            document.getElementById('lbl-good').innerText = (settings.good || 7) + 'p';
+            document.getElementById('lbl-easy').innerText = ((settings.easy || 1440) / 1440).toFixed(0) + ' ngày';
+            document.getElementById('lbl-super-easy').innerText = ((settings.superEasy || 10080) / 1440).toFixed(0) + ' ngày';
+        }
+
+        // --- XỬ LÝ PHÍM TẮT ---
+        window.addEventListener('keydown', function(event) {
+            if (['new-front', 'new-back'].includes(event.target.id) || event.target.id.startsWith('set-')) return;
+
+            if (event.ctrlKey && event.code === 'KeyZ') { 
+                event.preventDefault(); 
+                undoLastAction(); 
+                return; 
+            }
+
+            if ((event.code === 'Digit7' || event.code === 'Numpad7') && event.target.id !== 'type-input') {
+                event.preventDefault(); 
+                showSection('study');
+                setStudyMode('today');
+                return;
+            }
+
+            if (event.code === 'ArrowRight' && event.target.id !== 'type-input') {
+                event.preventDefault(); 
+                skipCard(); 
+                return; 
+            }
+
+            const studySection = document.getElementById('study');
+            if (!studySection.classList.contains('active') || !currentCard) return;
+
+            const isFront = document.getElementById('action-buttons-container').style.display !== 'none';
+
+            if (isFront) {
+                if (event.code === 'Enter' || event.code === 'NumpadEnter' || (event.code === 'Space' && event.target.id !== 'type-input')) {
+                    event.preventDefault(); 
+                    showAnswer();
+                }
+            } else {
+                if (['Digit1', 'Numpad1'].includes(event.code)) answerCard('again');
+                else if (['Digit2', 'Numpad2'].includes(event.code)) answerCard('hard');
+                else if (['Digit3', 'Numpad3'].includes(event.code)) answerCard('good');
+                else if (['Digit4', 'Numpad4'].includes(event.code)) answerCard('easy');
+                else if (['Digit5', 'Numpad5'].includes(event.code)) answerCard('superEasy');
+                else if (['Digit6', 'Numpad6'].includes(event.code)) sendToEnd();
+                else if (['Enter', 'NumpadEnter', 'Space'].includes(event.code)) {
+                    event.preventDefault(); 
+                    answerCard('good');
+                }
+            }
+        });
+
+        // --- QUẢN LÝ TỪ & FILE ---
+        function addWord() {
+            const front = document.getElementById('new-front').value.trim();
+            const back = document.getElementById('new-back').value.trim();
+            if (!front || !back) return alert('Vui lòng nhập cả 2 mặt!');
+            words.push({
+                id: Date.now() + Math.random(),
+                front: front,
+                back: back,
+                dueDate: Date.now(),
+                isEndQueue: false,
+                easyCount: 0,
+                superEasyCount: 0,
+                status: 'new',
+                sessionReviewed: false,
+                lastStudied: 0
+            });
+            saveData();
+            document.getElementById('new-front').value = '';
+            document.getElementById('new-back').value = '';
+            renderWordList();
+            updateDeckStats();
+            alert("Đã thêm thành công!");
+        }
+
+        async function handleFileUpload() {
+            const file = document.getElementById('file-input').files[0];
+            const statusDiv = document.getElementById('import-status');
+            if (!file) return alert('Hãy chọn file trước!');
+            const name = file.name.toLowerCase();
+            statusDiv.innerText = "Đang nạp file...";
+
+            if (name.endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const lines = e.target.result.split(/\r?\n/);
+                    let count = 0;
+                    lines.forEach(l => {
+                        if (!l.trim()) return;
+                        const p = l.split('\t');
+                        if (p.length >= 2) {
+                            words.push({ id: Date.now() + Math.random(), front: p[0].trim(), back: p[1].trim(), dueDate: Date.now(), isEndQueue: false, status: 'new', sessionReviewed: false, lastStudied: 0 });
+                            count++;
+                        }
+                    });
+                    saveData(); renderWordList(); updateDeckStats();
+                    statusDiv.innerText = `✅ Nhập thành công ${count} thẻ từ file TXT!`;
+                };
+                reader.readAsText(file);
+            } else if (name.endsWith('.apkg') || name.endsWith('.colpkg')) {
+                try {
+                    const zip = await JSZip.loadAsync(file);
+                    let dbFile = zip.file("collection.anki21b") || zip.file("collection.anki2");
+                    if (!dbFile) throw new Error("Không thấy file dữ liệu Anki.");
+                    const dbData = await dbFile.async("uint8array");
+                    const SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}` });
+                    const db = new SQL.Database(dbData);
+                    const res = db.exec("SELECT flds FROM notes");
+                    let count = 0;
+                    if (res.length > 0) {
+                        res[0].values.forEach(row => {
+                            const p = row[0].split('\x1f');
+                            if (p.length >= 2) {
+                                words.push({ id: Date.now() + Math.random(), front: p[0], back: p.slice(1).join('<br>'), dueDate: Date.now(), isEndQueue: false, status: 'new', sessionReviewed: false, lastStudied: 0 });
+                                count++;
+                            }
+                        });
+                    }
+                    saveData(); renderWordList(); updateDeckStats();
+                    statusDiv.innerText = `✅ Nhập thành công ${count} thẻ từ Anki!`;
+                } catch(err) {
+                    statusDiv.innerText = "❌ Lỗi: " + err.message;
+                }
+            }
+        }
+
+        function deleteWord(id) {
+            if (confirm('Xóa từ này?')) {
+                words = words.filter(w => w.id !== id);
+                saveData(); renderWordList(); updateDeckStats(); loadNextCard();
+            }
+        }
+
+        function deleteAllWords() {
+            if (confirm('Xóa toàn bộ kho từ vựng?')) {
+                words = [];
+                saveData(); renderWordList(); updateDeckStats(); loadNextCard();
+            }
+        }
+
+        function renderWordList() {
+            const list = document.getElementById('word-list');
+            list.innerHTML = '';
+            document.getElementById('word-count').innerText = words.length;
+            [...words].reverse().forEach(w => {
+                let badge = '';
+                if (w.status === 'reset') badge = '<span style="font-size:11px; background:rgba(244,211,94,0.25); color:var(--gold-soft); padding:2px 6px; border-radius:4px; margin-left:6px;">Mới reset</span>';
+                else if (w.status === 'review') badge = '<span style="font-size:11px; background:rgba(69,123,157,0.25); color:#60a5fa; padding:2px 6px; border-radius:4px; margin-left:6px;">Ôn định kỳ</span>';
+
+                list.innerHTML += `<div class="word-item">
+                    <div style="flex:1; padding-right:10px;">
+                        <strong>${w.front}</strong>${badge}<br><span style="font-size:13px; color:var(--text-sub);">${w.back}</span>
+                    </div>
+                    <button class="danger" onclick="deleteWord(${w.id})">Xóa</button>
+                </div>`;
+            });
+        }
+
+        function renderSettings() {
+            document.getElementById('set-again').value = settings.again;
+            document.getElementById('set-hard').value = settings.hard;
+            document.getElementById('set-good').value = settings.good;
+            document.getElementById('set-easy').value = settings.easy;
+            document.getElementById('set-super-easy').value = settings.superEasy;
+            document.getElementById('set-limit-new').value = settings.limitNew;
+            document.getElementById('set-limit-reset').value = settings.limitReset || 20;
+            document.getElementById('set-limit-review').value = settings.limitReview;
+            document.getElementById('set-limit-recent').value = settings.limitRecent || 25;
+        }
+
+        function saveSettings() {
+            settings.again = parseInt(document.getElementById('set-again').value) || 3;
+            settings.hard = parseInt(document.getElementById('set-hard').value) || 5;
+            settings.good = parseInt(document.getElementById('set-good').value) || 7;
+            settings.easy = parseInt(document.getElementById('set-easy').value) || 1440;
+            settings.superEasy = parseInt(document.getElementById('set-super-easy').value) || 10080;
+            settings.limitNew = parseInt(document.getElementById('set-limit-new').value) || 20;
+            settings.limitReset = parseInt(document.getElementById('set-limit-reset').value) || 20;
+            settings.limitReview = parseInt(document.getElementById('set-limit-review').value) || 50;
+            settings.limitRecent = parseInt(document.getElementById('set-limit-recent').value) || 25;
+            localStorage.setItem('settings', JSON.stringify(settings));
+            alert('Đã cập nhật cài đặt!');
+            updateLabels();
+            loadNextCard();
+        }
+
+        function saveData() { localStorage.setItem('words', JSON.stringify(words)); }
+
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-nav'));
+            document.getElementById(id).classList.add('active');
+            if (document.getElementById(`nav-${id}`)) document.getElementById(`nav-${id}`).classList.add('active-nav');
+            if (id === 'manage') renderWordList();
+            if (id === 'settings') renderSettings();
+            if (id === 'reading') renderReadingList();
+            if (id === 'study') loadNextCard();
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+            else if (document.exitFullscreen) document.exitFullscreen();
+        }
+
+        // --- READING SECTION ---
+        const hskReadings = [
+            {
+                title: "Bài 1: Khám phá thiên nhiên tươi đẹp",
+                text: "自然界中处处充满着生机与美丽。每天早晨，阳光透过树叶洒在大地上，微风吹过，落叶缓缓飘落。呼吸着清新的空气，让人感到无比放松和愉悦...",
+                tf: ["1. 早晨的自然界充满生机。"], essay: ["1. 为什么在自然环境中让人感到放松？"],
+                ans_tf: ["Đúng"], ans_essay: ["因为空气清新，阳光明媚，微风吹拂，让人心情愉悦。"]
+            }
+        ];
+        let currentReadingIdx = 0;
+        function renderReadingList() {
+            const list = document.getElementById('reading-list');
+            list.innerHTML = '';
+            hskReadings.forEach((r, idx) => {
+                list.innerHTML += `<div class="reading-card" onclick="openReading(${idx})"><span>${r.title}</span> <span>➡️</span></div>`;
+            });
+            list.style.display = 'block';
+            document.getElementById('reading-viewer').style.display = 'none';
+            document.getElementById('btn-back-reading').style.display = 'none';
+        }
+        function openReading(idx) {
+            currentReadingIdx = idx;
+            const r = hskReadings[idx];
+            document.getElementById('r-text').innerText = r.text;
+            document.getElementById('r-tf').innerHTML = r.tf.map(q => `<div>${q}</div>`).join('');
+            document.getElementById('r-essay').innerHTML = r.essay.map(q => `<div>${q}</div>`).join('');
+            document.getElementById('r-answers').innerHTML = `<b>Đúng/Sai:</b><br>${r.ans_tf.join('<br>')}<br><br><b>Trả lời:</b><br>${r.ans_essay.join('<br>')}`;
+            document.getElementById('r-answers').style.display = 'none';
+            document.getElementById('reading-list').style.display = 'none';
+            document.getElementById('reading-viewer').style.display = 'block';
+            document.getElementById('btn-back-reading').style.display = 'block';
+        }
+        function closeReading() { renderReadingList(); }
+        function toggleAnswers() {
+            const ans = document.getElementById('r-answers');
+            ans.style.display = ans.style.display === 'none' ? 'block' : 'none';
+        }
+        function playReadingAudio() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utter = new SpeechSynthesisUtterance(hskReadings[currentReadingIdx].text);
+                utter.lang = 'zh-CN';
+                utter.rate = 0.9;
+                window.speechSynthesis.speak(utter);
+            }
+        }
+
+        // Khởi động
+        showSection('study');
+    </script>
+</body>
+</html>
